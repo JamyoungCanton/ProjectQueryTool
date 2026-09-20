@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>新能源项目公开信息查询工具</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1>新能源项目公开信息查询工具</h1>
+        <p>公开信息统一查询、证据留存与结果导出</p>
+      </div>
+      <nav aria-label="辅助操作">
+        <button class="button secondary" id="historyButton" type="button">历史查询</button>
+        <button class="button secondary" id="logsButton" type="button">查看日志</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="query-panel" aria-labelledby="queryTitle">
+      <div class="section-heading">
+        <div>
+          <h2 id="queryTitle">第一步：搜索备案项目</h2>
+          <p>输入关键词，先从广东省投资项目在线审批监管平台查找项目，无需提前知道完整项目名称。</p>
+        </div>
+        <span class="privacy-note">仅查询公开网页</span>
+      </div>
+      <form id="queryForm">
+        <div class="form-grid">
+          <label class="field field-wide">
+            <span>项目关键词 <b aria-hidden="true">*</b></span>
+            <input name="keyword" required maxlength="120" autocomplete="off" placeholder="例如：储能、共享储能、算力、数据中心">
+          </label>
+          <label class="field">
+            <span>城市</span>
+            <input name="city" maxlength="40" autocomplete="address-level2" placeholder="可选，例如：肇庆市">
+          </label>
+          <label class="field">
+            <span>区县</span>
+            <input name="district" maxlength="40" autocomplete="address-level3" placeholder="可选，例如：广宁县">
+          </label>
+          <label class="field">
+            <span>备案通过日期（起）</span>
+            <input name="start_date" type="date">
+          </label>
+          <label class="field">
+            <span>备案通过日期（止）</span>
+            <input name="end_date" type="date">
+          </label>
+          <label class="field field-wide">
+            <span>后续采集关键词</span>
+            <input name="keywords" maxlength="300" autocomplete="off" value="备案、土地、用地预审、环评、EPC、接入系统" placeholder="用于勾选项目后的深度查询">
+          </label>
+        </div>
+        <div class="action-row">
+          <button class="button primary" id="searchButton" type="submit">搜索项目</button>
+          <button class="button primary" id="startButton" type="button" disabled>查询所选项目</button>
+          <button class="button danger" id="stopButton" type="button" disabled>停止查询</button>
+          <button class="button secondary" id="exportButton" type="button" disabled>导出 Excel</button>
+          <p class="form-error" id="formError" role="alert"></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="candidate-panel hidden" id="candidatePanel" aria-labelledby="candidateTitle">
+      <div class="section-heading results-heading">
+        <div>
+          <h2 id="candidateTitle">第二步：选择需要深度查询的项目</h2>
+          <p id="candidateSummary">勾选项目后再开始采集和生成表格。</p>
+        </div>
+        <label class="select-all"><input type="checkbox" id="selectAll"> 全选本页</label>
+      </div>
+      <div class="table-wrap candidate-table-wrap">
+        <table class="candidate-table">
+          <thead><tr><th>选择</th><th>项目名称</th><th>项目代码</th><th>建设单位</th><th>所在地</th><th>规模</th><th>备案状态</th><th>备案时间</th></tr></thead>
+          <tbody id="candidateBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" aria-label="项目检索分页">
+        <span id="pageStatus">第 1 页</span>
+        <div class="pagination-actions">
+          <button class="button secondary" id="previousPageButton" type="button" disabled>上一页</button>
+          <button class="button secondary" id="nextPageButton" type="button" disabled>下一页</button>
+          <label class="page-jump">官网页码 <input id="pageNumberInput" type="number" min="1" max="10000" value="1" aria-label="要跳转的官网页码"></label>
+          <button class="button secondary" id="goToPageButton" type="button" disabled>跳转</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="progress-panel" id="progressPanel" aria-live="polite">
+      <div class="progress-copy">
+        <strong id="stageText">等待查询</strong>
+        <span id="progressText">0%</span>
+      </div>
+      <div class="progress-track" aria-hidden="true"><span id="progressBar"></span></div>
+      <div class="stage-list" aria-label="查询阶段">
+        <span>备案信息</span><span>自然资源</span><span>土地信息</span><span>环评</span><span>招投标</span><span>结果整理</span>
+      </div>
+    </section>
+
+    <section class="results-panel" aria-labelledby="resultsTitle">
+      <div class="section-heading results-heading">
+        <div>
+          <h2 id="resultsTitle">查询结果</h2>
+          <p id="resultSummary">完成查询后，项目字段和来源证据将在这里显示。</p>
+        </div>
+      </div>
+      <div class="empty-state" id="emptyState">
+        <strong>尚无查询结果</strong>
+        <p>先按关键词搜索备案项目，再勾选需要查询的项目。未查到的信息会明确标记，不会自行推断。</p>
+      </div>
+      <div class="table-wrap hidden" id="resultTableWrap">
+        <table>
+          <thead><tr><th>项目名称</th><th>建设地点</th><th>储能规模</th><th>总投资</th><th>备案状态</th><th>土地落实情况</th><th>环评</th><th>EPC招标</th><th>来源</th></tr></thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+      <div class="detail-grid hidden" id="detailGrid"></div>
+      <div class="source-section hidden" id="sourceSection">
+        <h3>信息来源与原始证据</h3>
+        <div id="sourceList"></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="modal">
+    <div class="modal-heading">
+      <h2 id="modalTitle"></h2>
+      <button class="close-button" id="closeModal" type="button" aria-label="关闭">关闭</button>
+    </div>
+    <div id="modalContent"></div>
+  </dialog>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+{
+  "request_interval_seconds": 1.2,
+  "page_timeout_seconds": 35,
+  "retry_count": 1,
+  "max_discovered_urls": 8,
+  "sources": [
+    {
+      "id": "government",
+      "name": "政府官网",
+      "stage": "备案信息",
+      "enabled": true,
+      "search_domains": ["gov.cn", "gd.gov.cn"]
+    },
+    {
+      "id": "natural_resources",
+      "name": "自然资源部门",
+      "stage": "自然资源信息",
+      "enabled": true,
+      "search_domains": ["nr.gd.gov.cn", "gov.cn"]
+    },
+    {
+      "id": "environment",
+      "name": "生态环境部门",
+      "stage": "环评",
+      "enabled": true,
+      "search_domains": ["gdee.gd.gov.cn", "gov.cn"]
+    },
+    {
+      "id": "bidding",
+      "name": "公共资源与招投标",
+      "stage": "招投标",
+      "enabled": true,
+      "search_domains": ["ggzy.gov.cn", "cebpubservice.com"]
+    },
+    {
+      "id": "grid",
+      "name": "电网公司",
+      "stage": "接入系统",
+      "enabled": true,
+      "search_domains": ["csg.cn", "gd.csg.cn"]
+    }
+  ],
+  "bootstrap_pages": [
+    {
+      "name": "南方Plus广宁新能源公开报道",
+      "url": "https://static.nfnews.com/content/202404/02/c8747287.html",
+      "match_all": ["肇庆", "广宁", "200MW/400MWh"],
+      "stage": "项目基本信息"
+    },
+    {
+      "name": "中化学生态环境转载广宁发布",
+      "url": "https://www.cncec-eec.com/article/2211/",
+      "match_all": ["肇庆", "广宁", "200MW/400MWh"],
+      "stage": "项目基本信息"
+    }
+  ]
+}

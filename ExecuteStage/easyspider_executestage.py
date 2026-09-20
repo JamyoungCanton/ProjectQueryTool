@@ -2382,6 +2382,18 @@ if __name__ == '__main__':
         options.binary_location = "./chrome.exe"  # 指定chrome位置
         driver_path = "./chromedriver.exe"
 
+    # Internal web deployments can reuse a server-installed Chrome without
+    # copying the full browser into ElectronJS. Existing desktop packaging
+    # keeps the original paths above when these variables are not provided.
+    configured_chrome = os.environ.get("EASYSPIDER_CHROME_BINARY", "").strip()
+    configured_driver = os.environ.get("EASYSPIDER_DRIVER_PATH", "").strip()
+    if configured_chrome:
+        options.binary_location = configured_chrome
+        print("Chrome location overridden by EASYSPIDER_CHROME_BINARY:", options.binary_location)
+    if configured_driver:
+        driver_path = configured_driver
+        print("ChromeDriver overridden by EASYSPIDER_DRIVER_PATH:", driver_path)
+
     options.add_experimental_option(
         'excludeSwitches', ['enable-automation'])  # 以开发者模式
 

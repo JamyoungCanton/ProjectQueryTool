@@ -16,3 +16,12 @@ old_code/
 Data/
 **/__pycache__/
 **/.venv/
+RenewableProjectWeb/.pytest_cache/
+RenewableProjectWeb/data/
+RenewableProjectWeb/logs/
+RenewableProjectWeb/output/
+RenewableProjectWeb/runtime/chromedriver.exe
+RenewableProjectWeb/runtime/stealth.min.js
+RenewableProjectWeb/runtime/browser_runtime.json
+ExecuteStage/execution_instances/9*.json
+ExecuteStage/Data/Task_9*/

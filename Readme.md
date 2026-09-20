@@ -1,300 +1,173 @@
-# 易采集/EasySpider: Visual Code-Free Web Crawler
+# 新能源项目公开信息查询工具
 
-一个**完全免费**（**包括商业使用和二次开发**）的可视化浏览器自动化测试/数据采集/爬虫软件，可以使用图形化界面，无代码可视化的设计和执行任务。只需要在网页上选择自己想要操作的内容并根据提示框操作即可完成任务的设计和执行。同时软件还可以单独以命令行的方式进行执行，从而可以很方便的嵌入到其他系统中。 
+基于 [EasySpider](https://github.com/NaiboWang/EasySpider) 二次开发的公司内部公开信息查询工具。系统将 EasySpider 作为底层浏览器采集引擎，对普通用户提供简化的 Web 页面，不开放 XPath、CSS Selector、JS、节点配置或原始任务设计器。
 
-A **completely free (including for commercial use and secondary development)** visual browser automation test/data collection/crawler software, which can be used to design and execute tasks in a code-free visual way. You only need to select the content you want to operate on the web page and follow the prompts to complete the design and execution of the task. At the same time, the software can also be executed separately in the command line, so that it can be easily embedded into other systems.
+普通用户只需在浏览器中输入关键词，从广东省投资项目在线审批监管平台的公开备案目录筛选项目，再勾选需要深度查询的项目。系统会保存来源证据、整理结构化字段、记录历史与日志，并生成 Excel。
 
-<a href="https://trendshift.io/repositories/3367" target="_blank"><img src="https://trendshift.io/api/badge/repositories/3367" alt="NaiboWang%2FEasySpider | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+> 当前版本为第一阶段实现，重点适配广东省备案公开目录。自然资源、生态环境、公共资源交易、招投标和电网等信息通过配置的公开搜索范围发现候选页面，再交由 EasySpider 抓取。查询结果仅代表本次检索到的公开信息，不能替代主管部门正式文件。
 
-## 下载易采集/Download EasySpider
+## 主要功能
 
-进入 [Releases Page](https://github.com/NaiboWang/EasySpider/releases) 下载最新版本。如果下载速度慢，可以考虑中国境内下载地址：[中国境内下载地址](https://www.easyspider.cn/download.html)。
+- 按关键词、城市、区县和备案通过日期搜索备案项目
+- 支持上一页、下一页和官网页码跳转，浏览全部匹配结果
+- 支持跨页勾选项目；单次最多选择 10 个项目执行深度查询
+- 调用 EasySpider 执行动态网页采集并保留页面原始文本
+- 统一整理项目名称、项目代码、建设单位、建设地点、建设规模、投资、备案、土地、环评、EPC、接入系统等字段
+- 按项目代码、名称、单位、地点和规模合并来源，避免重复生成主记录
+- 为每条来源保存网站、标题、URL、发布日期、抓取时间、原始文本和证据等级
+- 使用 SQLite 保存查询条件、历史结果、来源证据和查询日志
+- 单个网站访问失败时记录错误并继续处理其他来源
+- 自动生成包含 5 个工作表的 Excel，URL 可直接点击
 
-Refer to the [Releases Page](https://github.com/NaiboWang/EasySpider/releases) to download the latest version of EasySpider.
+## 土地状态规则
 
-## 软件使用示例/Software Usage Example
+系统不会因为备案材料中出现地址或拟用地面积就判断“土地已落实”。土地状态按明确证据逐级判断：
 
-### 示例1/Example 1
+| 公开证据 | 输出结论 |
+| --- | --- |
+| 仅有“拟选址”“拟建于”“项目地址”“拟用地”等描述 | 已初步选址，土地落实情况待核实 |
+| 建设项目用地预审与选址意见书 | 已取得用地预审及选址意见 |
+| 建设用地批准文件 | 建设用地已获批 |
+| 土地成交公告、划拨决定书或土地出让合同 | 项目用地已落实 |
+| 不动产权证或土地使用权证 | 土地权属已落实 |
 
-（右键）选中一个大商品块 -> 软件自动检测到同类型商品块 -> 点击“选中全部”选项 -> 点击“选中子元素”选项 -> 点击“采集数据”选项，即可采集到所有商品的所有信息，并分成不同字段保存。
+没有明确证据时，相关字段显示“公开信息暂未查询到”，不自行推断。
 
-(Right click) Select a large product block -> The software will automatically detect similar blocks -> Click the 'Select All' option -> Click the 'Select Child Elements' option -> Click the 'Collect Data' option, you can collect the information of all products, and will be saved by sub-field.
+## 系统结构
 
-![animation_zh](media/animation_zh.gif)
+```text
+EasySpider/
+├─ ExecuteStage/                 EasySpider 任务执行引擎
+├─ ElectronJS/                   EasySpider 上游任务与运行资源
+└─ RenewableProjectWeb/          新能源项目查询业务系统
+   ├─ app.py                     FastAPI 服务及业务接口
+   ├─ project_tool/              采集适配、归一化、存储和导出
+   ├─ static/                    普通用户 Web 页面
+   ├─ config/sources.json        来源范围与运行参数
+   ├─ scripts/                   ChromeDriver 配置与检查脚本
+   ├─ tests/                     自动测试
+   ├─ install_server.ps1         Windows 首次安装脚本
+   └─ run_server.ps1             Windows 启动脚本
+```
 
-### 示例2/Example 2
+业务处理链路：
 
-（右键）选中一个商品标题，同类型标题会被自动匹配，点击“选中全部”选项 -> 点击“采集数据”选项，即可采集到所有商品的标题信息。
+```text
+关键词检索 → 展示备案候选项目 → 用户勾选 → 发现其他公开来源
+→ EasySpider 抓取页面 → 字段归一化与证据合并 → SQLite 保存 → Excel 导出
+```
 
-同时，选中全部后如果选择“循环点击每个元素”选项，即可自动打开每个商品的详情页，然后可以再继续设置采集详情页的信息。
+## Windows 服务器部署
 
-(Right Click) Select a product title, the same type of title will be automatically matched, click the 'Select All' option -> Click the 'Collect Data' option, you can collect the title information of all products.
+### 环境要求
 
-At the same time, if you select the 'Loop-click every element' option after selecting all, you can automatically open the details page of each product, and then can set to collect the information of the details page.
+- Windows 10/11 或 Windows Server
+- Python 3.10 及以上版本
+- Google Chrome
+- 可以访问目标公开网站的网络环境
 
-![animation_en](media/animation_en.gif)
+普通用户电脑只需要浏览器，不需要安装 Python、Node.js 或 EasySpider。
 
-## 赞助者/Sponsors
+### 首次安装
 
-<a target="_blank" href="https://get.brightdata.com/naibowang"><img src="media/BrightData.png" width=850></img></a>
-[Bright Data（亮数据）](https://get.brightdata.com/naibowang)作为全球领先的代理网络，覆盖全球1.5亿+IP，提供真实住宅IP及采集API，支持大规模稳定采集互联网公开数据，成功率经过实战验证。如需高性价比代理服务，可点击上方图片注册并联系中文客服；目前有“首充多少送多少”、动态IP 5折的优惠活动。Bright Data 也可配合EasySpider等工具进行数据采集。
+在 PowerShell 中进入业务目录：
 
-<a target="_blank" href="https://get.brightdata.com/enbd"><img src="media/BrightData_EN.png" width=850></img></a>
-[Bright Data](https://get.brightdata.com/enbd) is a leading proxy network with 150M+ IPs worldwide, offering real residential Ips and web unlocker to help you collect public web data at scale with proven, high success rates. For cost-effective proxy access, click the banner above to sign up and reach our Chinese support team—there’s currently a promo that matches your first deposit.
+```powershell
+cd C:\Users\Jamyoung\Desktop\Python\EasySpider\RenewableProjectWeb
+powershell -ExecutionPolicy Bypass -File .\install_server.ps1
+```
 
-<!-- <a target="_blank" href="http://www.ipidea.net/?utm-source=ycj&utm-keyword=?ycj"><img src="media/IPIDEA.jpg" width=850></img></a>
+安装脚本会创建独立的 `.venv`、安装依赖，并在 `runtime` 目录配置与本机 Chrome 匹配的 ChromeDriver。
 
-[IPIDEA](http://www.ipidea.net/?utm-source=ycj&utm-keyword=?ycj)通过全球高质量代理系统和自动化抓取工具，帮助企业解决地理与防护限制，快速精准地获取所需数据，提升采集效率，并为AI大模型训练、跨境电商、市场调研等应用场景提供可靠的数据支持。[IPIDEA](http://www.ipidea.net/?utm-source=ycj&utm-keyword=?ycj)还提供开箱即用的标准化数据集与灵活定制的专属数据采集服务。注册即享免费测试！ -->
+### 启动服务
 
-<a target="_blank" href="https://dashboard.capsolver.com/passport/register?inviteCode=vjZG0olvd5L3"><img src="media/capsolver.png" width=850></img></a>
+```powershell
+cd C:\Users\Jamyoung\Desktop\Python\EasySpider\RenewableProjectWeb
+powershell -ExecutionPolicy Bypass -File .\run_server.ps1
+```
 
-[CapSolver](https://dashboard.capsolver.com/passport/register?inviteCode=vjZG0olvd5L3)是CAPTCHA solving领域的Top 3供应商，提供AI驱动的CAPTCHA solving服务，支持reCAPTCHA, Image CAPTCHA, Cloudflare, AWS WAF and more。专为大批量网页爬取、自动化工作流而生，赋能你的AI、BI项目，解码速度最快可<3s，成功率>99%,宕机时间为0，快速的客服支持，全网性价比最高，还可叠加EasySpider的6%专属折扣码：**ESN**。
- 
-[CapSolver](https://dashboard.capsolver.com/passport/register?inviteCode=vjZG0olvd5L3) is one of the top 3 providers in the CAPTCHA-solving industry, offering AI-powered solutions that support reCAPTCHA, Image CAPTCHA, Cloudflare, AWS WAF, and more. Designed for high-volume web scraping and automated workflows, it boasts decoding speeds of < 3 seconds, a success rate > 99%, and 0 downtime, empowering your AI and BI projects. Backed by fast customer support, it offers the best value-for-money solution on the market.
-Get your extra 6% extra credit using EasySpider’s bonus code: **ESN**.
+本机访问：`http://127.0.0.1:8765/`
 
-Click [here](https://www.capsolver.com/blog/web-scraping/easyspider-capsolver) to see how to solve captcha in EasySpider with CapSolver integration.
+局域网其他电脑访问：`http://服务器IP:8765/`
 
-<a target="_blank" href="https://www.webshare.io/?referral_code=wk8icux0dunp"><img src="media/Webshare.png" width=850></img></a>
+如其他电脑无法访问，请检查 Windows 防火墙、公司网络策略以及服务器的 8765 端口。生产环境建议通过反向代理提供访问控制和 HTTPS；当前应用自身不包含用户登录与权限管理。
 
-[Webshare](https://www.webshare.io/?referral_code=wk8icux0dunp)是一家经济实惠且高性能的代理服务提供商，提供覆盖全球 195 个国家/地区的超过 8000 万个住宅、数据中心及 ISP 代理。其服务专为大规模网络爬虫和数据采集而设计，支持精确到国家和城市的定位，并提供轮换式住宅代理带宽，起价仅为 1.40 美元/GB。您可以利用包含 10 个代理和每月 1GB 流量的永久免费套餐（无需信用卡）无风险试用该网络，首次购买时使用优惠码 **SPIDER20** 还可享受 8 折优惠。
+## 使用流程
 
+1. 输入项目关键词；城市、区县和备案通过日期可以留空。
+2. 点击“搜索项目”，等待官网返回结果。
+3. 使用“上一页”“下一页”或页码跳转查看结果。
+4. 勾选需要深度查询的项目，单次最多 10 个。
+5. 点击“查询所选项目”，等待各公开来源查询完成。
+6. 点击结果行查看完整字段、来源链接和原始文本。
+7. 点击“导出 Excel”下载结果，也可通过“历史查询”和“查看日志”检查过去的执行记录。
 
-<a target="_blank" href="https://legionproxy.io/?utm_source=github&utm_campaign=easyspider"><img src="media/LegionProxy.png" width=850></img></a>
-[LegionProxy](https://legionproxy.io/?utm_source=github&utm_campaign=easyspider)作为快速发展的代理网络，覆盖全球195+国家和地区，拥有7400万+真实住宅 IP，提供真实 residential proxies及HTTP/3支持，助力大规模web scraping和自动化任务，有效规避IP封锁。住宅套餐低至$0.60/GB起，支持即时开通，中文客服快速响应。
+官网每页最多返回 15 条数据。按钮显示“正在加载…”时表示 EasySpider 正在访问官网，通常需要等待数秒。
 
-[LegionProxy](https://legionproxy.io/?utm_source=github&utm_campaign=easyspider) is a fast-growing proxy network with 74M+ residential IPs across 195+ countries, offering real residential proxies and HTTP/3 support to help you run scraping and automation at scale without IP blocks. Residential plans start at just $0.60/GB, with instant activation and responsive support when you need it.
+## Excel 输出
 
-## 官方网站/Official Website
+完成查询后，文件保存在 `RenewableProjectWeb/output/`，文件名格式为 `项目查询结果_YYYYMMDD_HHMMSS.xlsx`，包含以下工作表：
 
-访问易采集官网：[www.easyspider.cn](http://www.easyspider.cn)
+1. 项目汇总
+2. 信息来源
+3. 土地情况
+4. 招投标情况
+5. 查询日志
 
-Visit the official website of EasySpider: [www.easyspider.net](http://www.easyspider.net)
+## 数据与日志
 
-### 更多特性/More Features
+| 内容 | 位置 |
+| --- | --- |
+| SQLite 数据库 | `RenewableProjectWeb/data/project_queries.db` |
+| 每日日志 | `RenewableProjectWeb/logs/YYYY-MM-DD.log` |
+| Excel 文件 | `RenewableProjectWeb/output/` |
+| 来源配置 | `RenewableProjectWeb/config/sources.json` |
 
-更多特性请翻到页面底部查看。
+`data`、`logs`、`output`、虚拟环境和本机浏览器驱动均已在 `.gitignore` 中排除，不应提交到仓库。
 
-More features please scroll to the bottom of this page to view.
+## 配置
 
-## 支持作者/Support Author
+编辑 `RenewableProjectWeb/config/sources.json` 可以调整：
 
-易采集EasySpider是一款完全免费且使用中无广告的开源软件，软件开发和维护全靠作者用爱发电，因此您可以选择支持作者让作者有更多的热情和精力维护此软件，或者您使用了此软件进行了盈利，欢迎您通过下面的方式支持作者：
+- 请求间隔 `request_interval_seconds`
+- 页面超时 `page_timeout_seconds`
+- 失败重试次数 `retry_count`
+- 单个项目最多发现的候选网址数 `max_discovered_urls`
+- 启用的来源类别与搜索域名 `sources`
+- 已知公开页面 `bootstrap_pages`
 
-1. Github Sponsor：直接点击右侧**Sponsor**按钮赞助。
-2. 支付宝账号：naibowang@foxmail.com，也可以扫描下方二维码。
-3. 微信收款：扫描下方二维码。
-4. PayPal账号：naibowang，也可以扫描下方二维码。
+新增来源时应只配置无需登录、无需绕过权限即可访问的公开网站，并保持合理请求频率。
 
-You can support the author by clicking the **Sponsor** button at right side or pay via paypal: naibowang.
+## 开发与测试
 
-![QRCodes](media/QRCODES.png)
+在 `RenewableProjectWeb` 目录执行：
 
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+node --check .\static\app.js
+```
 
-## 文档/Documentation
+核心模块：
 
-请点此进入[教程文档](https://github.com/NaiboWang/EasySpider/wiki)，如有英文可暂时翻译一下，或看作者的[硕士毕业论文](Docs/%E9%9D%A2%E5%90%91WEB%E5%BA%94%E7%94%A8%E7%9A%84%E6%99%BA%E8%83%BD%E5%8C%96%E6%9C%8D%E5%8A%A1%E5%B0%81%E8%A3%85%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0.pdf)（主要看第三章和第五章）。
+- `project_tool/easyspider_adapter.py`：生成并执行内部 EasySpider 任务
+- `project_tool/discovery.py`：按来源配置发现候选公开页面
+- `project_tool/normalization.py`：字段抽取、证据分级、冲突合并和土地规则
+- `project_tool/database.py`：SQLite 数据存储
+- `project_tool/exporter.py`：Excel 工作簿生成
+- `project_tool/jobs.py`：后台任务、进度、停止与异常隔离
 
-Ebay样例博客：[https://blog.csdn.net/ihero/article/details/130805504](https://blog.csdn.net/ihero/article/details/130805504)。
+## 使用边界
 
-Documentation can be found from [GitHub Wiki](https://github.com/NaiboWang/EasySpider/wiki).
+本项目只访问无需绕过权限即可公开访问的信息，不实现验证码破解、登录绕过、反爬绕过、代理池攻击或高频并发请求。遇到人工验证、403、超时、页面改版或网络异常时，程序应记录日志并继续查询其他来源。
 
-## 视频教程/Video Tutorials
+公开页面可能发生变化，自动抽取也可能遗漏或误判。对投资、土地、环评、招标和电网接入等重要事项，应打开保存的来源 URL 核对原始文件。
 
-Bilibili/B站视频教程:
+## 上游项目与许可证
 
-[EasySpider介绍 - 中国地震台网采集案例](https://www.bilibili.com/video/BV1th411A7ey/)
+本项目基于 EasySpider 二次开发：
 
-[设置页面向下滚动](https://www.bilibili.com/video/BV1G14y1o7Qa/)
+- 上游仓库：[NaiboWang/EasySpider](https://github.com/NaiboWang/EasySpider)
+- 上游网站：[easyspider.net](http://www.easyspider.net)
+- 上游许可证：AGPL-3.0
 
-[如何无代码可视化的爬取需要登录才能爬的网站 - 知乎网站案例](https://www.bilibili.com/video/BV1BN411t71C/)
-
-[循环点击列表中每个链接进入详情页采集详情页内容+设计时动态调试+动态JS](https://www.bilibili.com/video/BV12V411D7RZ)
-
-[实战采集汽车网文章内容并下载文章内图片](https://www.bilibili.com/video/BV14u4y1x7S5/)
-
-[定时执行任务+选中子元素多种模式+将提取值作为变量输入](https://www.bilibili.com/video/BV1N94y1a7Lp/)
-
-[【重要】自定义条件判断之使用循环项内的JS命令返回值 - 第二弹](https://www.bilibili.com/video/BV18C4y1V7J7/)
-
-[流程图执行逻辑解析 - 58同城房源描述采集案例](https://www.bilibili.com/video/BV14N4y1o73Y/)
-
-[MacOS系统设计和执行eBay网站爬虫任务教程](https://www.bilibili.com/video/BV1E34y137fT/)
-
-[如何执行自己写的JS代码和系统代码 （自定义操作）](https://www.bilibili.com/video/BV1UH4y1f7BM/)
-
-[如何自定义循环和判断条件 - 第一弹](https://www.bilibili.com/video/BV18w411a77e/)
-
-[如何对元素和网页截图及命令行执行指南](https://www.bilibili.com/video/BV1ch4y1E7cn/)
-
-[OCR识别元素内容功能（常用于文字验证码）](https://www.bilibili.com/video/BV1GP411y7u4/)
-
-[如何爬需要输入验证码的网站](https://www.bilibili.com/video/BV1Rw411C7Hs/)
-
-[如何切换IP池和使用隧道IP - 打开详情页采集案例](https://www.bilibili.com/video/BV1zw411w7BN/)
-
-[如何同时执行多个任务（并行多开）](https://www.bilibili.com/video/BV1Dj411b77M/)
-
-[Python代码运算后的结果作为文本框的输入](https://www.bilibili.com/video/BV1kF411R7VJ/)
-
-[实例 - 反人类网站文章采集和代码调试](https://www.bilibili.com/video/BV1XH4y1Z78i/)
-
-[写入MySQL数据库教程](https://www.bilibili.com/video/BV1os4y1679S/)
-
-[从源代码编译程序并设计运行和调试任务指南（基于Ubuntu24.04）](https://www.bilibili.com/video/BV1VE421P7yj/)
-
-Refer to [Youtube Playlist](https://youtube.com/playlist?list=PL0kEFEkWrT7mt9MUlEBV2DTo1QsaanUTp) to see the video tutorials of EasySpider.
-
-## 样例任务/Sample Tasks
-
-从本项目的[Examples](Examples)文件夹中下载样例任务，更名为大于0的数字，导入到EasySpider中的`tasks`文件夹中，然后在EasySpider中打开即可。
-
-Download sample tasks from the [Examples](Examples) folder of this project, rename them to numbers greater than 0, import them into the `tasks` folder in EasySpider, and then open them in EasySpider.
-
-## 声明/Declaration
-
-本软件仅供学习交流使用，**严禁使用软件进行任何违法违规的操作，如爬取不允许爬取的政府/军事机关网站等**。使用本软件所造成的**一切后果由使用者自负**，与作者本人无关，**作者不会承担任何责任**。
-
-This software is for learning and communication only. **It is strictly forbidden to use the software for any illegal operations, such as crawling government/military websites that are not allowed to be crawled.** All consequences caused by the use of this software are **at the user's own risk, and the author is not responsible for any consequences**. 
-
-对于政府和军事机关等网站的爬虫操作，**作者将不会进行任何答疑**，以免违反国家相关法律法规和政策。
-
-For the crawler operations of government and military websites, **the author will not answer any questions** in order to avoid violating relevant national laws, regulations and policies.
-
-EasySpider遵循AGPL-3.0协议，**任何个人和企业都可以免费使用软件本身或使用源代码进行二次开发，无需联系作者进行商业（专利）授权**，但需要注意AGPL-3.0协议的相关规则：
-
-EasySpider complies with the AGPL-3.0 agreement. **Any individual or enterprise can use the software for free and use the software source code for secondary development without contacting the author for commercial (patent) authorization.** However, it is necessary to pay attention to the related rules of the AGPL-3.0 agreement:
-
-### 1. Copyleft（传染性） / Copyleft (Viral Clause)
-- **衍生作品 / Derivative Works**  
-  - 任何基于 AGPL 代码的修改或衍生作品，必须**以相同许可证（AGPL-3.0）发布**。  
-  - Any modifications or derivative works based on AGPL code must be **licensed under AGPL-3.0**.  
-- **联动范围 / Scope of Copyleft**  
-  - 若 AGPL 代码与其他代码结合（如静态链接、紧密集成），整个作品需遵守 AGPL。  
-  - If AGPL code is combined with other code (e.g., static linking), the entire work must comply with AGPL.  
-
-### 2. 网络使用条款 / Network Use Clause
-- **SaaS 触发开源义务 / SaaS Trigger**  
-  - 若软件以服务形式提供（如网站、API），必须向所有用户公开**完整对应源代码**（包括修改后的代码）。  
-  - If the software is provided as a service (e.g., website, API), the **full corresponding source code** (including modifications) must be made available to all users.  
-- **用户权利 / User Rights**  
-  - 服务的接收者可通过下载或书面请求获取源码。  
-  - Service recipients may obtain the source code via download or written request.  
-
-### 3. 源码提供要求 / Source Code Provision
-- **二进制分发 / Binary Distribution**  
-  - 必须附带源码或提供获取渠道（如下载链接）。  
-  - Source code must be included or a download link provided.  
-- **网络服务场景 / Network Service Scenario**  
-  - 需通过服务界面**显式提供源码链接**，或向用户书面承诺提供源码。  
-  - The service interface must **explicitly provide a source code link** or offer a written offer for source code.  
-
-### 4. 专利授权 / Patent Grant
-- 贡献者自动授予用户与软件相关的专利许可，禁止专利诉讼。  
-- Contributors automatically grant users patent rights related to the software, and prohibit patent litigation.  
-
-### 5. 免责声明 / Disclaimer
-- 软件按“原样”提供，作者**不承担任何责任**（无担保条款）。  
-- The software is provided "as is" with **no warranties or liabilities**.  
-
-
-## 答疑QQ群
-
-群号：**682921940**，建议通过Github提Issue的方式答疑，如果实在有需要才请加QQ群，因为群人数有上限，**QQ群不提供软件下载功能**。
-
-## 出版物/Publications
-
-- This software has been accepted by The Web Conference (WWW) 2023 (中国计算机学会顶级会议，CCF A): [EasySpider: A No-Code Visual System for Crawling the Web](https://dl.acm.org/doi/abs/10.1145/3543873.3587345), April 2023.
-
-- 中国国家知识产权局发明专利，[一种自定义提取流程的服务封装系统](media/patent.png)， 2022年5月。
-
-- [浙江大学硕士论文](https://d.wanfangdata.com.cn/thesis/Y3691829)，[面向WEB应用的智能化服务封装系统设计与实现](Docs/%E9%9D%A2%E5%90%91WEB%E5%BA%94%E7%94%A8%E7%9A%84%E6%99%BA%E8%83%BD%E5%8C%96%E6%9C%8D%E5%8A%A1%E5%B0%81%E8%A3%85%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0.pdf)，2020年6月。
-<!-- - See the [Copyright Declaration Page](https://github.com/NaiboWang/EasySpider/blob/master/media/readme_back.md) here.
- -->
-
-## 编译说明/Compilation Instructions
-
-查看[编译说明](ElectronJS/README.md)。
-
-Refer to [Compilation Instructions](ElectronJS/README.md).
-
-## 支持特性/Supported Features
-
-![pic](media/features_CN.png)
-![pic](media/features_EN.png)
-
-## 中文界面截图
-
-#### 软件界面示例
-
-![pic](media/Picture.png)
-#### 块和子块及表单定义
-
-![pic](media/Picture2.png)
-#### 已选中和待选择示例
-
-![pic](media/Picture7.png)
-#### 京东商品块选择示例：
-
-![pic](media/Picture1.png)
-
-
-#### 京东商品标题自动匹配选择示例
-
-![pic](media/Picture5.png)
-#### 分块选择所有子元素示例
-
-![pic](media/Picture6.png)
-
-#### 同类型元素自动和手动匹配示例
-
-![pic](media/Picture8.png)
-#### 四种选择方式示例
-
-![pic](media/Picture90.png)
-#### 输入文字示例
-
-![pic](media/Picture10.png)
-#### 循环点击58同城房屋标题以进入详情页采集示例
-
-![pic](media/Picture12.png)
-#### 采集元素文本示例
-
-![pic](media/Picture14.png)
-#### 流程图界面介绍
-
-![pic](media/Picture4.png)
-#### 循环选项示例
-
-![pic](media/Picture9.png)
-
-#### 循环点击下一页示例
-
-![pic](media/Picture11.png)
-
-#### 条件分支示例
-
-![pic](media/Picture13.png)
-#### 完整采集流程图示例
-
-![pic](media/Picture16.png)
-#### 完整采集流程图转换为常规流程图示例
-
-![pic](media/Picture91.png)
-#### 服务信息示例
-
-![pic](media/Picture15.png)
-
-#### 服务调用示例
-
-![pic](media/Picture17.png)
-
-
-#### 58 同城房源信息采集服务部分采集结果展示
-![pic](media/Picture18.png)
-
-
-
-<!-- ## Ethics Discussion
-Various fields can benefit from web crawlers due to their open access nature.
-Inevitably, there will be some risk of malicious use or data infringement issue, e.g., automatic order swiping and ticket grabbing, but this is contrary to our expectations. As a tool developer, we only hope that it can be used for legitimate purposes. We advocate the reasonable and legal utilization of our system, respecting and protecting the data security and privacy. -->
+本仓库继续遵守 AGPL-3.0。分发修改版、提供网络服务或对外部署时，请同时遵守上游许可证关于对应源代码提供、版权声明和免责声明的要求。详见仓库中的 `LICENSE`。
