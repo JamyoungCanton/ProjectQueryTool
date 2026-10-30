@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -15,24 +16,25 @@ class EasySpiderAdapter:
 
     def __init__(self, repo_root: Path, runtime_dir: Path):
         self.repo_root = repo_root
+        self.app_root = runtime_dir.parent
         self.execute_dir = repo_root / "ExecuteStage"
         self.runtime_dir = runtime_dir
         self.instance_dir = self.execute_dir / "execution_instances"
         self.instance_dir.mkdir(parents=True, exist_ok=True)
         self._processes: dict[int, subprocess.Popen] = {}
         self._lock = threading.RLock()
+        self._runtime_lock = threading.Lock()
 
     def capture(self, query_id: int, sequence: int, url: str, timeout: int = 50) -> dict:
         instance_id = 900000 + query_id * 100 + sequence
         save_name = f"project_{query_id}_{sequence}"
         task = self._build_task(instance_id, url, save_name)
         (self.instance_dir / f"{instance_id}.json").write_text(json.dumps(task, ensure_ascii=False), encoding="utf-8")
+        chrome, driver = self._ensure_browser_runtime()
         env = os.environ.copy()
         env["PYTHONUTF8"] = "1"
-        chrome = os.environ.get("EASYSPIDER_CHROME_BINARY", r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-        driver = os.environ.get("EASYSPIDER_DRIVER_PATH", str(self.runtime_dir / "chromedriver.exe"))
-        env["EASYSPIDER_CHROME_BINARY"] = chrome
-        env["EASYSPIDER_DRIVER_PATH"] = driver
+        env["EASYSPIDER_CHROME_BINARY"] = str(chrome)
+        env["EASYSPIDER_DRIVER_PATH"] = str(driver)
         output_file = self.execute_dir / "Data" / f"Task_{instance_id}" / f"{save_name}.json"
         command = [
             sys.executable, "-u", str(self.execute_dir / "easyspider_executestage.py"),
@@ -96,14 +98,11 @@ class EasySpiderAdapter:
         (self.instance_dir / f"{instance_id}.json").write_text(
             json.dumps(task, ensure_ascii=False), encoding="utf-8"
         )
+        chrome, driver = self._ensure_browser_runtime()
         env = os.environ.copy()
         env["PYTHONUTF8"] = "1"
-        env["EASYSPIDER_CHROME_BINARY"] = os.environ.get(
-            "EASYSPIDER_CHROME_BINARY", r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-        )
-        env["EASYSPIDER_DRIVER_PATH"] = os.environ.get(
-            "EASYSPIDER_DRIVER_PATH", str((self.runtime_dir / "chromedriver.exe").resolve())
-        )
+        env["EASYSPIDER_CHROME_BINARY"] = str(chrome)
+        env["EASYSPIDER_DRIVER_PATH"] = str(driver)
         output_file = self.execute_dir / "Data" / f"Task_{instance_id}" / f"{save_name}.json"
         command = [sys.executable, "-u", str(self.execute_dir / "easyspider_executestage.py"),
                    "--ids", f"[{instance_id}]", "--read_type", "local", "--headless", "1",
@@ -140,6 +139,96 @@ class EasySpiderAdapter:
             process = self._processes.get(query_id)
         if process and process.poll() is None:
             self._terminate_process_tree(process)
+
+    def _ensure_browser_runtime(self) -> tuple[Path, Path]:
+        """Keep the bundled ChromeDriver compatible with auto-updating Chrome."""
+        chrome = Path(os.environ.get(
+            "EASYSPIDER_CHROME_BINARY", r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        ))
+        driver = Path(os.environ.get(
+            "EASYSPIDER_DRIVER_PATH", str((self.runtime_dir / "chromedriver.exe").resolve())
+        ))
+        with self._runtime_lock:
+            chrome_version = self._installed_chrome_version(chrome)
+            driver_version = self._installed_driver_version(driver)
+            if (not chrome_version or not driver_version
+                    or self._major(chrome_version) != self._major(driver_version)):
+                custom_runtime = bool(
+                    os.environ.get("EASYSPIDER_CHROME_BINARY")
+                    or os.environ.get("EASYSPIDER_DRIVER_PATH")
+                )
+                if custom_runtime:
+                    raise RuntimeError(
+                        f"Chrome {chrome_version or '未知'} 与 ChromeDriver "
+                        f"{driver_version or '未安装'} 不兼容；请更新自定义浏览器驱动配置。"
+                    )
+                self._refresh_browser_runtime(chrome_version, driver_version)
+                chrome_version = self._installed_chrome_version(chrome)
+                driver_version = self._installed_driver_version(driver)
+                if (not chrome_version or not driver_version
+                        or self._major(chrome_version) != self._major(driver_version)):
+                    raise RuntimeError(
+                        f"ChromeDriver 自动更新后仍不兼容：Chrome {chrome_version or '未知'}，"
+                        f"ChromeDriver {driver_version or '未安装'}。"
+                    )
+        return chrome, driver
+
+    def _refresh_browser_runtime(self, chrome_version: str, driver_version: str) -> None:
+        script = self.app_root / "scripts" / "provision_chromedriver.py"
+        if not script.exists():
+            raise RuntimeError(f"ChromeDriver 更新脚本不存在：{script}")
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=self.app_root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=150,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(
+                f"Chrome 已更新到 {chrome_version or '未知'}，但 ChromeDriver "
+                f"{driver_version or '未安装'} 自动更新失败：{exc}"
+            ) from exc
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "未知错误").strip().splitlines()[-1]
+            raise RuntimeError(
+                f"Chrome 已更新到 {chrome_version or '未知'}，但 ChromeDriver "
+                f"{driver_version or '未安装'} 自动更新失败：{message[:300]}"
+            )
+
+    @staticmethod
+    def _installed_chrome_version(chrome: Path) -> str:
+        if not chrome.exists():
+            raise RuntimeError(f"未找到 Chrome：{chrome}")
+        versions = [
+            child.name for child in chrome.parent.iterdir()
+            if child.is_dir() and re.fullmatch(r"\d+(?:\.\d+){3}", child.name)
+        ]
+        if versions:
+            return max(versions, key=lambda value: tuple(int(part) for part in value.split(".")))
+        return ""
+
+    @staticmethod
+    def _installed_driver_version(driver: Path) -> str:
+        if not driver.exists():
+            return ""
+        try:
+            result = subprocess.run(
+                [str(driver), "--version"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        match = re.search(r"\d+(?:\.\d+){3}", result.stdout or result.stderr)
+        return match.group(0) if match else ""
+
+    @staticmethod
+    def _major(version: str) -> str:
+        return version.split(".", 1)[0] if version else ""
 
     @staticmethod
     def _terminate_process_tree(process: subprocess.Popen) -> None:
